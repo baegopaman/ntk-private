@@ -53,14 +53,20 @@ jobs:
         run: |
           echo "설정한 도메인: ${{ steps.settings.outputs.domain }}"
           
-          # 1. Smali 파일들 전체에서 기존 도메인(sbxh9.com)을 신규 도메인으로 전부 교체
-          find decompiled_apk/smali* -type f -exec sed -i 's/sbxh9.com/${{ steps.settings.outputs.domain }}/g' {} +
-          find decompiled_apk/smali* -type f -exec sed -i 's/sbxh9//g' {} +
+          # 1. 앱 내부에서 강제로 조합하는 주소 뼈대 자체를 newtoki#.org에서 sbxh#.com으로 개조
+          find decompiled_apk/smali* -type f -exec sed -i 's/newtoki/sbxh/g' {} +
+          find decompiled_apk/smali* -type f -exec sed -i 's/\.org/\.com/g' {} +
 
-          # 2. WebView 및 OkHttp 클라이언트에 PC용 User-Agent 강제 주입하여 차단 우회
-          # (봇 감지 방지를 위해 Smali 레벨에서 헤더 및 U-A 패치 진행)
-          TARGET_UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-          find decompiled_apk/smali* -type f -name "*okhttp*" -exec sed -i "s|User-Agent|$TARGET_UA|g" {} +
+          # 2. 혹시 하드코딩된 특정 예외 도메인이 있다면 설정한 도메인으로 최종 교체
+          find decompiled_apk/smali* -type f -exec sed -i 's/newtoki1.org/${{ steps.settings.outputs.domain }}/g' {} +
+          find decompiled_apk/smali* -type f -exec sed -i 's/sbxh9.com/${{ steps.settings.outputs.domain }}/g' {} +
+
+          # 3. [Ad acknowledgment 우회] Cloudflare 및 광고 인증 봇 차단을 뚫기 위한 모바일 전용 헤더 강제 주입
+          TARGET_UA="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+          find decompiled_apk/smali* -type f -exec sed -i "s|User-Agent|$TARGET_UA|g" {} +
+
+          # 4. [Ad acknowledgment 우회] 네트워크 요청 시 무조건 정상적인 크롬 브라우저를 통한 광고 승인 헤더가 포함되도록 Smali 코드 삽입
+          find decompiled_apk/smali* -type f -name "*Interceptor*.smali" -exec sed -i '/.method.*intercept/a \    const-string v0, "X-Requested-With"\n    const-string v1, "com.android.chrome"\n    invoke-virtual {p1, v0, v1}, Lokhttp3/Request$Builder;->addHeader(Ljava/lang/String;Ljava/lang/String;)Lokhttp3/Request$Builder;' {} +
 
       - name: Rebuild APK
         run: |
