@@ -1,10 +1,10 @@
 name: Custom APK Auto Patch & Release
 
 on:
-  workflow_dispatch: # 사용자가 원할 때 수동으로 버튼을 눌러 빌드하는 방식
+  workflow_dispatch:
   push:
     paths:
-      - 'patch-config.json' # 설정 파일만 고쳐서 저장하면 자동으로 빌드가 돌게 설정
+      - 'patch-config.json'
 
 jobs:
   patch-and-release:
@@ -29,7 +29,6 @@ jobs:
           wget https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar -O bin/apktool.jar
           wget https://github.com/patrickfav/uber-apk-signer/releases/download/v1.3.0/uber-apk-signer-1.3.0.jar -O bin/uber-apk-signer.jar
 
-          # apktool 실행용 래퍼 스크립트 작성
           echo '#!/bin/bash' > bin/apktool
           echo 'exec java -jar '"$GITHUB_WORKSPACE"'/bin/apktool.jar "$@"' >> bin/apktool
           chmod +x bin/apktool
@@ -52,20 +51,12 @@ jobs:
       - name: Apply Ad Bypass & Domain Patches (Smali Injection)
         run: |
           echo "설정한 도메인: ${{ steps.settings.outputs.domain }}"
-          
-          # 1. 앱 내부에서 강제로 조합하는 주소 뼈대 자체를 newtoki#.org에서 sbxh#.com으로 개조
           find decompiled_apk/smali* -type f -exec sed -i 's/newtoki/sbxh/g' {} +
           find decompiled_apk/smali* -type f -exec sed -i 's/\.org/\.com/g' {} +
-
-          # 2. 혹시 하드코딩된 특정 예외 도메인이 있다면 설정한 도메인으로 최종 교체
           find decompiled_apk/smali* -type f -exec sed -i 's/newtoki1.org/${{ steps.settings.outputs.domain }}/g' {} +
           find decompiled_apk/smali* -type f -exec sed -i 's/sbxh9.com/${{ steps.settings.outputs.domain }}/g' {} +
-
-          # 3. [Ad acknowledgment 우회] Cloudflare 및 광고 인증 봇 차단을 뚫기 위한 모바일 전용 헤더 강제 주입
           TARGET_UA="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
           find decompiled_apk/smali* -type f -exec sed -i "s|User-Agent|$TARGET_UA|g" {} +
-
-          # 4. [Ad acknowledgment 우회] 네트워크 요청 시 무조건 정상적인 크롬 브라우저를 통한 광고 승인 헤더가 포함되도록 Smali 코드 삽입
           find decompiled_apk/smali* -type f -name "*Interceptor*.smali" -exec sed -i '/.method.*intercept/a \    const-string v0, "X-Requested-With"\n    const-string v1, "com.android.chrome"\n    invoke-virtual {p1, v0, v1}, Lokhttp3/Request$Builder;->addHeader(Ljava/lang/String;Ljava/lang/String;)Lokhttp3/Request$Builder;' {} +
 
       - name: Rebuild APK
@@ -76,14 +67,8 @@ jobs:
         run: |
           java -jar bin/uber-apk-signer.jar --apks patched_unsigned.apk -o output_signed/ --allowResign
 
-      - name: Create GitHub Release and Upload Patched APK
-        uses: softprops/action-gh-release@v2
+      - name: Upload Patched APK Artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: "v1.4.3-patched-${{ github.run_number }}"
-          name: "NTK-Custom-Patch-v1.4.3"
-          body: "자동 우회 패치가 적용된 전용 1.4.3 APK 파일입니다. 도메인: ${{ steps.settings.outputs.domain }}"
-          draft: false
-          prerelease: false
-          files: output_signed/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: patched-apk
+          path: output_signed/patched_unsigned-aligned-debugSigned.apk
