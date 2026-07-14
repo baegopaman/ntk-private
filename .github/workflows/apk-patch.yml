@@ -47,7 +47,7 @@ jobs:
 
       - name: Decompile 1.4.3 APK
         run: |
-          apktool d apk/tachiyomi-ko.ntk-v1.4.3-release.apk -o decompiled_apk
+          apktool d NTK-Mihon-Extension-main/apk/tachiyomi-ko.ntk-v1.4.3-release.apk -o decompiled_apk
 
       - name: Apply Ad Bypass & Domain Patches (Smali Injection)
         run: |
