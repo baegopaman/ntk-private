@@ -50,21 +50,23 @@ jobs:
       - name: Apply Ad Bypass & Domain Patches (Smali Injection)
         run: |
           echo "설정한 도메인: ${{ steps.settings.outputs.domain }}"
-          # 1. 도메인 및 주소 치환
           find decompiled_apk/smali* -type f -exec sed -i 's/newtoki/sbxh/g' {} +
           find decompiled_apk/smali* -type f -exec sed -i 's/\.org/\.com/g' {} +
           find decompiled_apk/smali* -type f -exec sed -i 's/newtoki1.org/${{ steps.settings.outputs.domain }}/g' {} +
           find decompiled_apk/smali* -type f -exec sed -i 's/sbxh9.com/${{ steps.settings.outputs.domain }}/g' {} +
           
-          # 2. 헤더 주입 및 광고 인증 강제 우회 (Smali 로직 수정)
+          # 모바일 헤더 주입
           TARGET_UA="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
           find decompiled_apk/smali* -type f -exec sed -i "s|User-Agent|$TARGET_UA|g" {} +
           
-          # 광고 인증 로직 우회 코드 삽입
+          # 1. Interceptor 헤더 패치
           find decompiled_apk/smali* -type f -name "*Interceptor*.smali" -exec sed -i '/.method.*intercept/a \    const-string v0, "X-Requested-With"\n    const-string v1, "com.android.chrome"\n    invoke-virtual {p1, v0, v1}, Lokhttp3/Request$Builder;->addHeader(Ljava/lang/String;Ljava/lang/String;)Lokhttp3/Request$Builder;' {} +
           
-          # 인증 요구 팝업 메서드 강제 true 리턴 처리 (일반적인 패턴)
-          find decompiled_apk/smali* -type f -exec sed -i '/method.*isAdAcknowledged/a \    const/4 v0, 0x1\n    return v0' {} +
+          # 2. 강제 인증 통과 (Ad/Popup 관련 클래스에 강제 리턴값 주입)
+          # 'isAdAcknowledged', 'checkAd', 'shouldShowAd' 등 광고 체크 메서드 무력화
+          find decompiled_apk/smali* -type f -exec sed -i '/method.*isAd/a \    const/4 v0, 0x1\n    return v0' {} +
+          find decompiled_apk/smali* -type f -exec sed -i '/method.*checkAd/a \    const/4 v0, 0x1\n    return v0' {} +
+          find decompiled_apk/smali* -type f -exec sed -i '/method.*shouldShow/a \    const/4 v0, 0x0\n    return v0' {} +
 
       - name: Rebuild APK
         run: |
