@@ -84,6 +84,6 @@ jobs:
           body: "자동 우회 패치가 적용된 전용 1.4.3 APK 파일입니다. 도메인: ${{ steps.settings.outputs.domain }}"
           draft: false
           prerelease: false
-          files: output_signed/*.apk
+          files: output_signed/patched_unsigned-aligned-debugSigned.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
